@@ -36,18 +36,21 @@ class Opinion():
         self.extremity = extremity
         self.quality = quality
         self.confidence = confidence
-        
+    
+    extreme_quality_level = 7
+    extreme_confidence_level = 5
+
     def low_quality(self):
-        return self.quality < -5
+        return self.quality < -Opinion.extreme_quality_level
     
     def high_quality(self):
-        return self.quality > 5
+        return self.quality > Opinion.extreme_quality_level
     
     def low_confidence(self):
-        return self.confidence < -5
+        return self.confidence < -Opinion.extreme_confidence_level
     
     def high_confidence(self):
-        return self.confidence > 5
+        return self.confidence > Opinion.extreme_confidence_level
 
 class Citizen(Agent):
     IN_GROUP_RANGE = 2
@@ -68,7 +71,8 @@ class Citizen(Agent):
         return {
             "id": self.unique_id,
             "extremity": self.opinion.extremity,
-            "connected_nodes": list(map(lambda x: x.unique_id, self.connected_nodes))
+            "connected_nodes": list(map(lambda x: x.unique_id, self.connected_nodes)),
+            "connection_strengths": list(self.connection_strengths)
         }
     
     def in_group_citizens(self, pool=None):
@@ -169,6 +173,19 @@ class Citizen(Agent):
         connected_citizens = list(self.connected_nodes)
         connection_strengths = list(self.connection_strengths)
         
+        # for _ in range(1):
+        #     second_degree_connections = list(map(lambda x: x.connected_nodes, connected_citizens))
+        #     second_degree_connections = [item for sublist in second_degree_connections for item in sublist]
+        #     pool = second_degree_connections
+            
+        #     if len(pool) == 0:
+        #         pool = self.in_group_citizens(pool=self.model.schedule.agents)
+            
+        #     new_node = np.random.choice(pool)
+        #     if new_node not in self.connected_nodes:
+        #         connected_citizens.append(new_node)
+        #         connection_strengths.append(1)
+
         if len(self.connected_nodes) == 0:
             # Should this be random not in-group?
             connection_source = np.random.choice(self.in_group_citizens(pool=self.model.schedule.agents))
@@ -345,28 +362,20 @@ def run_model(config, plot=False):
         
     return model
 
-def get_config():        
-    return {
-        "num_citizens": 20,
-        "connections_per_citizen": 10,
-        "opinion_distribs": {
-            "extremity": {"minimum": -3, "maximum": 3},
-            "quality": {"minimum": -7, "maximum": 3},
-            "confidence": {"minimum": 0, "maximum": 4},
-        },
-        "max_iterations": 100,
-    }
 
+colors = None
 def network_draw(g, data):
-    color_map = []
+    global colors
+
     i = data
     for nodes in range(len(i)):
         g.add_node(i[nodes]["id"], extremity=float(i[nodes]["extremity"]))
 
-    groups = set(nx.get_node_attributes(g,'extremity').values())
-    mapping = dict(zip(sorted(groups),count()))
-    nodes = g.nodes()
-    colors = [mapping[g.node[n]['extremity']] for n in nodes]
+    if not colors:
+        groups = set(nx.get_node_attributes(g,'extremity').values())
+        mapping = dict(zip(sorted(groups),count()))
+        nodes = g.nodes()
+        colors = [mapping[g.node[n]['extremity']] for n in nodes]
     
     for a in range(len(i)):
         for con in range(len(i[a]["connected_nodes"])):
@@ -379,22 +388,37 @@ def animate(i):
     return network_draw(G, history[i])
 
 history = []
-def main():
-    config = get_config()
+def main(config):
     model = run_model(config, plot=False)
     
     global history
     history = model.history
-    
-    # network_plot(model.history)
+ 
+# Run model.  
+iterations = 100      
+config = {
+    "num_citizens": 300,
+    "connections_per_citizen": 10,
+    "opinion_distribs": {
+        "extremity": {"minimum": -9, "maximum": 9},
+        "quality": {"minimum": -6, "maximum": 9},
+        "confidence": {"minimum": 5, "maximum": 9},
+    },
+    "max_iterations": iterations,
+}
+main(config)
 
-main()
+# Plot
 G = nx.Graph()
-network_draw(G, history[0])
+network_draw(G, history[99])
 fig = plt.gcf()
-
-anim = animation.FuncAnimation(fig, animate, frames=50, interval=700)
-
 plt.show()
+# anim = animation.FuncAnimation(fig, animate, frames=iterations, interval=50)
+# plt.show()
+
+# Stable
+# "extremity": {"minimum": -5, "maximum": 5},
+# "quality": {"minimum": -1, "maximum": 9},
+# "confidence": {"minimum": 3, "maximum": 7},
 
 
