@@ -22,6 +22,7 @@ from itertools import count
 import networkx as nx
 from matplotlib import pylab
 from matplotlib.pyplot import pause
+import matplotlib.animation as animation
 
 import time
 
@@ -188,28 +189,14 @@ class Citizen(Agent):
             if new_connection not in self.connected_nodes:
                 connected_citizens.append(new_connection)
                 connection_strengths.append(1)
-
-        # for _ in range(1):
-        #     second_degree_connections = list(map(lambda x: x.connected_nodes, connected_citizens))
-        #     second_degree_connections = [item for sublist in second_degree_connections for item in sublist]
-        #     pool = second_degree_connections
-            
-        #     if len(pool) == 0:
-        #         pool = self.in_group_citizens(pool=self.model.schedule.agents)
-            
-        #     new_node = np.random.choice(pool)
-        #     if new_node not in self.connected_nodes:
-        #         connected_citizens.append(new_node)
-        #         connection_strengths.append(1)
         
         to_remove = []
         
         for other_node in connected_citizens:
             citizen_index = connected_citizens.index(other_node)
-            distance = abs(other_node.opinion.extremity - self.opinion.extremity)
-            percent_distance = distance/20.0
+            percent_distance = abs(other_node.opinion.extremity - self.opinion.extremity)/20.0
             connection_strengths[citizen_index] -= percent_distance/2.0
-            if connection_strengths[citizen_index] < 0.3:
+            if connection_strengths[citizen_index] < 0.2:
                 to_remove.append(other_node)
             
         for node in to_remove:
@@ -357,15 +344,10 @@ def run_model(config, plot=False):
         plt.show()
         
     return model
-        
-        
-
-
-# In[5]:
 
 def get_config():        
     return {
-        "num_citizens": 500,
+        "num_citizens": 20,
         "connections_per_citizen": 10,
         "opinion_distribs": {
             "extremity": {"minimum": -3, "maximum": 3},
@@ -375,68 +357,44 @@ def get_config():
         "max_iterations": 100,
     }
 
-history = None
-def main():
-    global history
-    config = get_config()
-    model = run_model(config, plot=False)
-    history = model.history
-    print("extremity " + str(extremity))
-    print("quality " + str(quality))
-    print("confidence " + str(confidence))
-    print("connections " + str(connections))
-main()
-
-
-# In[6]:
-
-def network_plot(data, img_name):
-    g = nx.Graph()
+def network_draw(g, data):
     color_map = []
     i = data
     for nodes in range(len(i)):
         g.add_node(i[nodes]["id"], extremity=float(i[nodes]["extremity"]))
+
     groups = set(nx.get_node_attributes(g,'extremity').values())
     mapping = dict(zip(sorted(groups),count()))
     nodes = g.nodes()
     colors = [mapping[g.node[n]['extremity']] for n in nodes]
+    
     for a in range(len(i)):
         for con in range(len(i[a]["connected_nodes"])):
             g.add_edge(i[a]["id"],i[a]["connected_nodes"][con])
-    plot = nx.draw(g, pos=nx.spring_layout(g), node_color=colors, cmap=plt.cm.seismic)
-    plt.show()
-    fig = plt.figure()
+    
+    nx.draw(g, pos=nx.spring_layout(g), node_color=colors, cmap=plt.cm.seismic)
 
+def animate(i):
+    plt.clf()
+    return network_draw(G, history[i])
 
-def network_plot(history):
-    pylab.ion()
+history = []
+def main():
+    config = get_config()
+    model = run_model(config, plot=False)
+    
+    global history
+    history = model.history
+    
+    # network_plot(model.history)
 
-    def get_fig(data):
-        g = nx.Graph()
-        color_map = []
-        i = data
-        for nodes in range(len(i)):
-            g.add_node(i[nodes]["id"], extremity=float(i[nodes]["extremity"]))
-        groups = set(nx.get_node_attributes(g,'extremity').values())
-        mapping = dict(zip(sorted(groups),count()))
-        nodes = g.nodes()
-        colors = [mapping[g.node[n]['extremity']] for n in nodes]
-        for a in range(len(i)):
-            for con in range(len(i[a]["connected_nodes"])):
-                g.add_edge(i[a]["id"],i[a]["connected_nodes"][con])
-        
-        fig = pylab.figure()
-        nx.draw(g, pos=nx.spring_layout(g), node_color=colors, cmap=plt.cm.seismic)
-        return fig
+main()
+G = nx.Graph()
+network_draw(G, history[0])
+fig = plt.gcf()
 
-    pylab.show()
+anim = animation.FuncAnimation(fig, animate, frames=50, interval=700)
 
-    for data in history:
-        fig = get_fig(data)
-        fig.canvas.draw()
-        pylab.draw()
-        pause(0.2)
-        pylab.close(fig)
-
+plt.show()
 
 
